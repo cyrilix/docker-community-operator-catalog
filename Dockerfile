@@ -25,12 +25,11 @@ RUN if [ $PERMISSIVE_LOAD = "true" ] ; then /bin/initializer --permissive -o ./b
 
 
 
-FROM --platform=$BUILDPLATFORM builder-git AS builder-registry-server-src
+FROM golang:1.15-alpine AS builder-registry-server-src
 
 ARG version="v1.15.3"
 
-ARG BUILDPLATFORM
-
+RUN apk add -U git
 WORKDIR /opt
 RUN git clone https://github.com/operator-framework/operator-registry.git
 WORKDIR /opt/operator-registry
@@ -40,15 +39,17 @@ RUN git checkout ${version}
 
 
 
-FROM --platform=$BUILDPLATFORM builder-registry-server-src AS builder-registry-server
+FROM builder-registry-server-src AS builder-registry-server
 
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
 
+RUN apk add -U gcc musl-dev
+
 RUN GOOS=$(echo $TARGETPLATFORM | cut -f1 -d/) && \
     GOARCH=$(echo $TARGETPLATFORM | cut -f2 -d/) && \
     GOARM=$(echo $TARGETPLATFORM | cut -f3 -d/ | sed "s/v//" ) && \
-    CGO_ENABLED=0 GOOS=${GOOS} GOARCH=${GOARCH} GOARM=${GOARM} go build -mod=vendor -v -ldflags '-w -extldflags "-static"' -tags "json1" ./cmd/registry-server
+    CGO_ENABLED=1 GOOS=${GOOS} GOARCH=${GOARCH} GOARM=${GOARM} go build -mod=vendor -v -ldflags '-w -extldflags "-static"' -tags "json1" ./cmd/registry-server
 
 
 
